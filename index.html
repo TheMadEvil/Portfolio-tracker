@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>📈 Family Portfolio Tracker</title>
+  <link rel="stylesheet" href="style.css" />
   <style>
+    /* You can move this to style.css if you prefer */
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
@@ -47,115 +49,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    const people = [
-      {
-        name: "👤 Your Investments",
-        funds: [
-          { name: "Axis Liquid Fund", invested: 1026, return: 1.35, status: "Active (6 months)" },
-          { name: "Nippon Silver ETF FoF", invested: 3786, return: -3.79, status: "Active (6 months)" },
-          { name: "Nippon Large Cap", invested: 2914, return: -1.85, status: "Active (6 months)" },
-          { name: "Invesco PSU ETF", invested: 2500, return: 0, status: "Recent" },
-          { name: "Parag Parikh Flexi Cap", invested: 2500, return: 0, status: "Recent" }
-        ]
-      },
-      {
-        name: "👩‍💼 Spouse’s Investments",
-        funds: [
-          { name: "SBI Contra Regular", invested: 16247, return: 1.55, status: "Active (since Dec 2024)" },
-          { name: "SBI Large & Mid Regular", invested: 8371.95, return: 4.65, status: "Active" },
-          { name: "SBI Small Cap Regular", invested: 16428, return: 2.68, status: "Active" }
-        ]
-      }
-    ];
-
-    function renderDashboard() {
-      const dash = document.getElementById("dashboard");
-      dash.innerHTML = "";
-      let labels = [], investedData = [], liveData = [];
-
-      let combinedTotal = 0;
-
-      for (const person of people) {
-        let block = document.createElement("div");
-        block.className = "person-block";
-
-        let html = `<h2>${person.name}</h2>
-        <table>
-          <tr><th>Fund Name</th><th>Amount Invested (₹)</th><th>Return (%)</th><th>Status</th><th>Live Value (₹)</th><th>Profit/Loss (%)</th></tr>`;
-
-        let personTotal = 0;
-
-        for (const fund of person.funds) {
-          const liveValue = fund.invested * (1 + fund.return / 100);
-          const profitLoss = fund.return.toFixed(2);
-          html += `<tr>
-            <td>${fund.name}</td>
-            <td>₹${fund.invested.toLocaleString()}</td>
-            <td>${fund.return > 0 ? "+" : ""}${profitLoss}%</td>
-            <td>${fund.status}</td>
-            <td>₹${liveValue.toFixed(2).toLocaleString()}</td>
-            <td>${profitLoss}%</td>
-          </tr>`;
-          labels.push(fund.name);
-          investedData.push(fund.invested);
-          liveData.push(liveValue);
-          personTotal += fund.invested;
-        }
-
-        html += `</table><p><strong>✅ Total (${person.name}): ₹${personTotal.toLocaleString()} invested</strong></p>`;
-        combinedTotal += personTotal;
-
-        block.innerHTML = html;
-        dash.appendChild(block);
-      }
-
-      dash.innerHTML += `
-        <h2>🧮 Combined Investment Summary</h2>
-        <table>
-          <tr><th>Category</th><th>Amount (₹)</th></tr>
-          <tr><td>Your Portfolio</td><td>₹12,726</td></tr>
-          <tr><td>Spouse’s Portfolio</td><td>₹41,046.95</td></tr>
-          <tr><td><strong>Combined Total</strong></td><td><strong>₹53,772.95</strong></td></tr>
-        </table>`;
-
-      renderChart(labels, investedData, liveData);
-    }
-
-    function renderChart(labels, investedData, liveData) {
-      const ctx = document.getElementById("portfolioChart").getContext("2d");
-      if (window.portfolioChart) window.portfolioChart.destroy();
-
-      window.portfolioChart = new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              label: "Amount Invested (₹)",
-              data: investedData,
-              backgroundColor: "#3498db"
-            },
-            {
-              label: "Live Value (₹)",
-              data: liveData,
-              backgroundColor: "#2ecc71"
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: true }
-          },
-          scales: {
-            y: { beginAtZero: false }
-          }
-        }
-      });
-    }
-
-    renderDashboard();
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
