@@ -68,13 +68,18 @@
         name: "👤 Your Investments",
         funds: [
           { name: "Axis Liquid Fund", invested: 1026, ticker: "AXISLIQUID.NS" },
-          { name: "Nippon Silver ETF FoF", invested: 3786, ticker: "NIPPONSILVER.NS" }
+          { name: "Nippon Silver ETF FoF", invested: 3786, ticker: "NIPPONSILVER.NS" },
+          { name: "Nippon Large Cap", invested: 2914, ticker: "NIPPONLARGE.NS" },
+          { name: "Invesco PSU ETF", invested: 2500, ticker: "INVPSUETF.NS" },
+          { name: "Parag Parikh Flexi Cap", invested: 2500, ticker: "PARAGFLEXI.NS" }
         ]
       },
       {
         name: "👩‍💼 Spouse’s Investments",
         funds: [
-          { name: "SBI Contra Regular", invested: 16247, ticker: "SBICONTRA.NS" }
+          { name: "SBI Contra Regular", invested: 16247, ticker: "SBICONTRA.NS" },
+          { name: "SBI Large & Mid Regular", invested: 8371.95, ticker: "SBILARGEMID.NS" },
+          { name: "SBI Small Cap Regular", invested: 16428, ticker: "SBISMALLCAP.NS" }
         ]
       }
     ];
@@ -97,6 +102,7 @@
       const allLabels = [[], []];
       const allInvested = [[], []];
       const allLive = [[], []];
+      let combinedInvested = 0;
 
       for (let p = 0; p < people.length; p++) {
         const person = people[p];
@@ -118,6 +124,7 @@
           allInvested[p].push(fund.invested);
           allLive[p].push(live || null);
           total += fund.invested;
+          combinedInvested += fund.invested;
 
           html += `<tr>
             <td><input value="${fund.name}" onchange="people[${p}].funds[${f}].name=this.value; renderDashboard()" /></td>
@@ -132,13 +139,23 @@
         html += `</table>
         <button class="add-btn" onclick="addFund(${p})">➕ Add Fund</button>
         <p><strong>Total Invested: ₹${total.toLocaleString()}</strong></p>`;
-
         block.innerHTML = html;
         dash.appendChild(block);
       }
 
-      renderChart("yourChart", allLabels[0], allInvested[0], allLive[0], "👤 Your Chart");
-      renderChart("spouseChart", allLabels[1], allInvested[1], allLive[1], "👩‍💼 Spouse Chart");
+      dash.innerHTML += `
+        <div class="person-block">
+          <h2>🧮 Combined Investment Summary</h2>
+          <table>
+            <tr><th>Category</th><th>Amount (₹)</th></tr>
+            <tr><td>Your Portfolio</td><td>₹${allInvested[0].reduce((a,b) => a+b, 0).toLocaleString()}</td></tr>
+            <tr><td>Spouse’s Portfolio</td><td>₹${allInvested[1].reduce((a,b) => a+b, 0).toLocaleString()}</td></tr>
+            <tr><td><strong>Combined Total</strong></td><td><strong>₹${combinedInvested.toLocaleString()}</strong></td></tr>
+          </table>
+        </div>`;
+
+      renderChart("yourChart", allLabels[0], allInvested[0], allLive[0]);
+      renderChart("spouseChart", allLabels[1], allInvested[1], allLive[1]);
     }
 
     function addFund(personIndex) {
@@ -151,7 +168,7 @@
       renderDashboard();
     }
 
-    function renderChart(canvasId, labels, investedData, liveData, title) {
+    function renderChart(canvasId, labels, investedData, liveData) {
       const ctx = document.getElementById(canvasId).getContext("2d");
       if (window[canvasId]) window[canvasId].destroy();
 
@@ -170,7 +187,7 @@
             {
               label: "Live (₹)",
               data: liveData,
-              borderColor: "#27ae60",
+              borderColor: "#2ecc71",
               fill: false,
               tension: 0.3
             }
