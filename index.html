@@ -1,16 +1,20 @@
-<!-- Updated Family Portfolio Tracker with Actual Fund Data -->
+<!-- Updated Portfolio Tracker with Line Chart and Yahoo Finance Integration -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>📊 Family Portfolio Tracker</title>
+  <title>📈 Family Portfolio Tracker</title>
   <style>
     /* [Same CSS as before — unchanged for brevity] */
+    #line-chart-container {
+      max-width: 800px;
+      margin: 40px auto;
+    }
   </style>
 </head>
 <body>
-  <h1>🧳 Family Portfolio Tracker</h1>
+  <h1>📈 Family Portfolio Tracker</h1>
 
   <div class="button-bar">
     <button id="addPerson">➕ Add Participant</button>
@@ -25,44 +29,51 @@
     <canvas id="chart"></canvas>
   </div>
 
+  <div id="line-chart-container">
+    <canvas id="lineChart"></canvas>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <script>
-    async function fetchLiveNAV(fundName) {
+    // Replace with your actual Yahoo Finance API key and endpoint
+    const YAHOO_API_KEY = "YOUR_API_KEY";
+    const YAHOO_ENDPOINT = "https://yfapi.net/v8/finance/chart/";
+
+    async function fetchYahooHistorical(ticker) {
       try {
-        const response = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(fundName)}`);
+        const response = await fetch(`${YAHOO_ENDPOINT}${ticker}?range=1mo&interval=1d`, {
+          headers: { "x-api-key": YAHOO_API_KEY }
+        });
         const data = await response.json();
-        if (data && data.length > 0) {
-          const schemeCode = data[0].schemeCode;
-          const navResponse = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
-          const navData = await navResponse.json();
-          return parseFloat(navData.data[0].nav);
-        }
+        const prices = data.chart.result[0].indicators.quote[0].close;
+        const timestamps = data.chart.result[0].timestamp.map(ts => new Date(ts * 1000).toLocaleDateString());
+        return { prices, timestamps };
       } catch (e) {
-        console.warn("NAV fetch failed for", fundName);
+        console.warn("Yahoo Finance fetch failed for", ticker);
+        return null;
       }
-      return null;
     }
 
     let people = [
       {
         name: "Me",
         funds: [
-          { name: "Axis Liquid Fund", amount: 1026, return: 1.35, date: "" },
-          { name: "Nippon Silver ETF FoF", amount: 3786, return: -3.79, date: "" },
-          { name: "Nippon Large Cap", amount: 2914, return: -1.85, date: "" },
-          { name: "Invesco PSU ETF", amount: 2500, return: 0, date: "" },
-          { name: "Parag Parikh Flexi Cap", amount: 2500, return: 0, date: "" }
+          { name: "Axis Liquid Fund", amount: 1026, return: 1.35, date: "", ticker: "AXISLIQUID.NS" },
+          { name: "Nippon Silver ETF FoF", amount: 3786, return: -3.79, date: "", ticker: "NIPPONSILVER.NS" },
+          { name: "Nippon Large Cap", amount: 2914, return: -1.85, date: "", ticker: "NIPPONLARGE.NS" },
+          { name: "Invesco PSU ETF", amount: 2500, return: 0, date: "", ticker: "INVPSUETF.NS" },
+          { name: "Parag Parikh Flexi Cap", amount: 2500, return: 0, date: "", ticker: "PARAGFLEXI.NS" }
         ]
       },
       {
         name: "Spouse",
         funds: [
-          { name: "SBI Contra Regular", amount: 16247, return: 1.55, date: "" },
-          { name: "SBI Large & Mid Regular", amount: 8371.95, return: 4.65, date: "" },
-          { name: "SBI Small Cap Regular", amount: 16428, return: 2.68, date: "" }
+          { name: "SBI Contra Regular", amount: 16247, return: 1.55, date: "", ticker: "SBICONTRA.NS" },
+          { name: "SBI Large & Mid Regular", amount: 8371.95, return: 4.65, date: "", ticker: "SBILARGEMID.NS" },
+          { name: "SBI Small Cap Regular", amount: 16428, return: 2.68, date: "", ticker: "SBISMALLCAP.NS" }
         ]
       }
     ];
@@ -77,21 +88,20 @@
         let block = document.createElement("div");
         block.className = "person-block";
 
-        let html = `<h2>${person.name}</h2><table><tr><th>Fund Name</th><th>Amount (₹)</th><th>Return (%)</th><th>Date</th><th>Real NAV</th></tr>`;
+        let html = `<h2>${person.name}</h2><table><tr><th>Fund Name</th><th>Amount (₹)</th><th>Return (%)</th><th>Date</th><th>Ticker</th></tr>`;
 
         let realTotal = 0;
 
         for (let fIdx = 0; fIdx < person.funds.length; fIdx++) {
           const fund = person.funds[fIdx];
-          const realNAV = await fetchLiveNAV(fund.name);
           html += `<tr>
             <td><input value="${fund.name}" onchange="people[${pIdx}].funds[${fIdx}].name=this.value"></td>
             <td><input type="number" value="${fund.amount}" onchange="people[${pIdx}].funds[${fIdx}].amount=+this.value"></td>
             <td><input type="number" value="${fund.return}" onchange="people[${pIdx}].funds[${fIdx}].return=+this.value"></td>
             <td><input type="date" value="${fund.date || ''}" onchange="people[${pIdx}].funds[${fIdx}].date=this.value"></td>
-            <td>${realNAV ? realNAV.toFixed(2) : '-'}</td>
+            <td><input value="${fund.ticker}" onchange="people[${pIdx}].funds[${fIdx}].ticker=this.value"></td>
           </tr>`;
-          if (realNAV) realTotal += fund.amount * (1 + fund.return / 100);
+          realTotal += fund.amount * (1 + fund.return / 100);
         }
         html += `</table>`;
 
@@ -106,6 +116,11 @@
         dash.appendChild(block);
       }
 
+      renderBarChart(labels, data, actual);
+      renderLineChart();
+    }
+
+    function renderBarChart(labels, data, actual) {
       const ctx = document.getElementById('chart').getContext('2d');
       if (window.myChart) window.myChart.destroy();
       window.myChart = new Chart(ctx, {
@@ -113,21 +128,51 @@
         data: {
           labels: labels,
           datasets: [
-            {
-              label: 'Invested (₹)',
-              data: data,
-              backgroundColor: '#3498db'
-            },
-            {
-              label: 'Current Value (₹)',
-              data: actual,
-              backgroundColor: '#2ecc71'
-            }
+            { label: 'Invested (₹)', data: data, backgroundColor: '#3498db' },
+            { label: 'Current Value (₹)', data: actual, backgroundColor: '#2ecc71' }
           ]
         },
         options: {
           responsive: true,
           plugins: { legend: { display: true } }
+        }
+      });
+    }
+
+    async function renderLineChart() {
+      const ctx = document.getElementById('lineChart').getContext('2d');
+      const datasets = [];
+      let labels = [];
+
+      for (const person of people) {
+        for (const fund of person.funds) {
+          const result = await fetchYahooHistorical(fund.ticker);
+          if (result) {
+            if (labels.length === 0) labels = result.timestamps;
+            datasets.push({
+              label: `${person.name} - ${fund.name}`,
+              data: result.prices,
+              borderColor: '#' + Math.floor(Math.random()*16777215).toString(16),
+              fill: false
+            });
+          }
+        }
+      }
+
+      if (window.lineChart) window.lineChart.destroy();
+      window.lineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true } },
+          scales: {
+            y: { beginAtZero: false },
+            x: { display: true }
+          }
         }
       });
     }
@@ -141,36 +186,4 @@
     };
 
     document.getElementById("toggleDark").onclick = () => {
-      document.body.classList.toggle("dark-mode");
-    };
-
-    document.getElementById("downloadCSV").onclick = () => {
-      let csv = "Name,Fund,Amount,Return,Date\n";
-      people.forEach(p => {
-        p.funds.forEach(f => {
-          csv += `${p.name},${f.name},${f.amount},${f.return},${f.date || ''}\n`;
-        });
-      });
-      const blob = new Blob([csv], { type: "text/csv" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "portfolio.csv";
-      a.click();
-    };
-
-    document.getElementById("downloadPDF").onclick = () => {
-      html2canvas(document.body).then(canvas => {
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jspdf.jsPDF();
-        const imgProps = pdf.getImageProperties(imgData);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save("portfolio.pdf");
-      });
-    };
-
-    renderDashboard();
-  </script>
-</body>
-</html>
+      document.body
