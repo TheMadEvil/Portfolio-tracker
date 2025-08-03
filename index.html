@@ -14,15 +14,6 @@
     h1, h2 {
       text-align: center;
     }
-    .button-bar {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    button {
-      margin: 5px;
-      padding: 10px 15px;
-      cursor: pointer;
-    }
     .person-block {
       margin-bottom: 40px;
       border: 1px solid #ccc;
@@ -40,155 +31,129 @@
       border: 1px solid #ddd;
       text-align: left;
     }
-    input[type="number"], input[type="text"], input[type="date"] {
-      width: 100%;
+    #chart-container {
+      max-width: 900px;
+      margin: 40px auto;
     }
   </style>
 </head>
 <body>
   <h1>📈 Family Portfolio Tracker</h1>
 
-  <div class="button-bar">
-    <button id="addPerson">➕ Add Participant</button>
-    <button id="toggleDark">🌃 Toggle Dark Mode</button>
-    <button id="downloadCSV">🗅 Export CSV</button>
-    <button id="downloadPDF">🕆️ Export PDF</button>
-  </div>
-
   <div id="dashboard"></div>
 
   <div id="chart-container">
-    <canvas id="chart"></canvas>
-  </div>
-
-  <div id="line-chart-container">
-    <canvas id="lineChart"></canvas>
+    <canvas id="portfolioChart"></canvas>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
   <script>
     const people = [
       {
-        name: "Me",
+        name: "👤 Your Investments",
         funds: [
-          { name: "Axis Liquid Fund", amount: 1026, return: 1.35, date: "", ticker: "AXISLIQUID.NS", status: "Active (6 months)" },
-          { name: "Nippon Silver ETF FoF", amount: 3786, return: -3.79, date: "", ticker: "NIPPONSILVER.NS", status: "Active (6 months)" },
-          { name: "Nippon Large Cap", amount: 2914, return: -1.85, date: "", ticker: "NIPPONLARGE.NS", status: "Active (6 months)" },
-          { name: "Invesco PSU ETF", amount: 2500, return: 0, date: "", ticker: "INVPSUETF.NS", status: "Recent" },
-          { name: "Parag Parikh Flexi Cap", amount: 2500, return: 0, date: "", ticker: "PARAGFLEXI.NS", status: "Recent" }
+          { name: "Axis Liquid Fund", invested: 1026, return: 1.35, status: "Active (6 months)" },
+          { name: "Nippon Silver ETF FoF", invested: 3786, return: -3.79, status: "Active (6 months)" },
+          { name: "Nippon Large Cap", invested: 2914, return: -1.85, status: "Active (6 months)" },
+          { name: "Invesco PSU ETF", invested: 2500, return: 0, status: "Recent" },
+          { name: "Parag Parikh Flexi Cap", invested: 2500, return: 0, status: "Recent" }
         ]
       },
       {
-        name: "Spouse",
+        name: "👩‍💼 Spouse’s Investments",
         funds: [
-          { name: "SBI Contra Regular", amount: 16247, return: 1.55, date: "", ticker: "SBICONTRA.NS", status: "Active (since Dec 2024)" },
-          { name: "SBI Large & Mid Regular", amount: 8371.95, return: 4.65, date: "", ticker: "SBILARGEMID.NS", status: "Active" },
-          { name: "SBI Small Cap Regular", amount: 16428, return: 2.68, date: "", ticker: "SBISMALLCAP.NS", status: "Active" }
+          { name: "SBI Contra Regular", invested: 16247, return: 1.55, status: "Active (since Dec 2024)" },
+          { name: "SBI Large & Mid Regular", invested: 8371.95, return: 4.65, status: "Active" },
+          { name: "SBI Small Cap Regular", invested: 16428, return: 2.68, status: "Active" }
         ]
       }
     ];
 
-    async function renderDashboard() {
+    function renderDashboard() {
       const dash = document.getElementById("dashboard");
       dash.innerHTML = "";
-      let labels = [], data = [], actual = [];
+      let labels = [], investedData = [], liveData = [];
 
-      for (let pIdx = 0; pIdx < people.length; pIdx++) {
-        const person = people[pIdx];
+      let combinedTotal = 0;
+
+      for (const person of people) {
         let block = document.createElement("div");
         block.className = "person-block";
 
-        let html = `<h2>${person.name === "Me" ? "👤 Your Investments" : "👩‍💼 Spouse’s Investments"}</h2>
-        <table><tr>
-          <th>Fund Name</th>
-          <th>Amount Invested (₹)</th>
-          <th>Return (%)</th>
-          <th>Market Value (₹)</th>
-          <th>Status</th>
-          <th>Date</th>
-          <th>Ticker</th>
-        </tr>`;
+        let html = `<h2>${person.name}</h2>
+        <table>
+          <tr><th>Fund Name</th><th>Amount Invested (₹)</th><th>Return (%)</th><th>Status</th><th>Live Value (₹)</th><th>Profit/Loss (%)</th></tr>`;
 
-        let total = 0, realTotal = 0;
+        let personTotal = 0;
 
-        for (let fIdx = 0; fIdx < person.funds.length; fIdx++) {
-          const fund = person.funds[fIdx];
-          const marketValue = fund.amount * (1 + fund.return / 100);
-          total += fund.amount;
-          realTotal += marketValue;
-
+        for (const fund of person.funds) {
+          const liveValue = fund.invested * (1 + fund.return / 100);
+          const profitLoss = fund.return.toFixed(2);
           html += `<tr>
-            <td><input value="${fund.name}" onchange="people[${pIdx}].funds[${fIdx}].name=this.value"></td>
-            <td><input type="number" value="${fund.amount}" onchange="people[${pIdx}].funds[${fIdx}].amount=+this.value; renderDashboard()"></td>
-            <td><input type="number" value="${fund.return}" onchange="people[${pIdx}].funds[${fIdx}].return=+this.value; renderDashboard()">%</td>
-            <td>₹${marketValue.toFixed(2).toLocaleString()}</td>
-            <td><input value="${fund.status || ''}" onchange="people[${pIdx}].funds[${fIdx}].status=this.value"></td>
-            <td><input type="date" value="${fund.date || ''}" onchange="people[${pIdx}].funds[${fIdx}].date=this.value"></td>
-            <td><input value="${fund.ticker}" onchange="people[${pIdx}].funds[${fIdx}].ticker=this.value"></td>
+            <td>${fund.name}</td>
+            <td>₹${fund.invested.toLocaleString()}</td>
+            <td>${fund.return > 0 ? "+" : ""}${profitLoss}%</td>
+            <td>${fund.status}</td>
+            <td>₹${liveValue.toFixed(2).toLocaleString()}</td>
+            <td>${profitLoss}%</td>
           </tr>`;
+          labels.push(fund.name);
+          investedData.push(fund.invested);
+          liveData.push(liveValue);
+          personTotal += fund.invested;
         }
 
-        html += `</table>
-        <p><strong>✅ Total (${person.name === "Me" ? "Your" : "Spouse’s"} Portfolio)</strong><br>
-        ₹${total.toLocaleString()} invested | Market Value: ₹${realTotal.toFixed(2).toLocaleString()}</p>`;
-
-        labels.push(person.name);
-        data.push(total);
-        actual.push(realTotal);
+        html += `</table><p><strong>✅ Total (${person.name}): ₹${personTotal.toLocaleString()} invested</strong></p>`;
+        combinedTotal += personTotal;
 
         block.innerHTML = html;
         dash.appendChild(block);
       }
 
-      const combined = data.reduce((a, b) => a + b, 0);
-      const combinedVal = actual.reduce((a, b) => a + b, 0);
-
       dash.innerHTML += `
         <h2>🧮 Combined Investment Summary</h2>
         <table>
           <tr><th>Category</th><th>Amount (₹)</th></tr>
-          <tr><td>Your Portfolio</td><td>₹${data[0].toLocaleString()}</td></tr>
-          <tr><td>Spouse’s Portfolio</td><td>₹${data[1].toLocaleString()}</td></tr>
-          <tr><td><strong>Combined Total</strong></td><td><strong>₹${combined.toLocaleString()}</strong></td></tr>
-        </table>
-        <p><strong>Total Market Value:</strong> ₹${combinedVal.toFixed(2).toLocaleString()}</p>`;
+          <tr><td>Your Portfolio</td><td>₹12,726</td></tr>
+          <tr><td>Spouse’s Portfolio</td><td>₹41,046.95</td></tr>
+          <tr><td><strong>Combined Total</strong></td><td><strong>₹53,772.95</strong></td></tr>
+        </table>`;
 
-      renderBarChart(labels, data, actual);
+      renderChart(labels, investedData, liveData);
     }
 
-    function renderBarChart(labels, data, actual) {
-      const ctx = document.getElementById('chart').getContext('2d');
-      if (window.myChart) window.myChart.destroy();
-      window.myChart = new Chart(ctx, {
-        type: 'bar',
+    function renderChart(labels, investedData, liveData) {
+      const ctx = document.getElementById("portfolioChart").getContext("2d");
+      if (window.portfolioChart) window.portfolioChart.destroy();
+
+      window.portfolioChart = new Chart(ctx, {
+        type: "bar",
         data: {
           labels: labels,
           datasets: [
-            { label: 'Invested (₹)', data: data, backgroundColor: '#3498db' },
-            { label: 'Current Value (₹)', data: actual, backgroundColor: '#2ecc71' }
+            {
+              label: "Amount Invested (₹)",
+              data: investedData,
+              backgroundColor: "#3498db"
+            },
+            {
+              label: "Live Value (₹)",
+              data: liveData,
+              backgroundColor: "#2ecc71"
+            }
           ]
         },
         options: {
           responsive: true,
-          plugins: { legend: { display: true } }
+          plugins: {
+            legend: { display: true }
+          },
+          scales: {
+            y: { beginAtZero: false }
+          }
         }
       });
     }
-
-    document.getElementById("addPerson").onclick = () => {
-      const name = prompt("Enter participant name:");
-      if (name) {
-        people.push({ name, funds: [] });
-        renderDashboard();
-      }
-    };
-
-    document.getElementById("toggleDark").onclick = () => {
-      document.body.classList.toggle("dark-mode");
-    };
 
     renderDashboard();
   </script>
