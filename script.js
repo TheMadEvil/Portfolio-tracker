@@ -1,4 +1,4 @@
-const people = [
+let people = [
   {
     name: "👤 Your Investments",
     funds: [
@@ -19,14 +19,13 @@ const people = [
   }
 ];
 
-// Fetch current price from Yahoo (public) via scraping JSON inside page
 async function fetchLivePrice(ticker) {
   try {
-    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`);
-    const data = await response.json();
+    const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1d&interval=1d`);
+    const data = await res.json();
     return data.chart.result[0].indicators.quote[0].close[0];
-  } catch (error) {
-    console.warn("Failed to fetch price for", ticker);
+  } catch (e) {
+    console.warn("Failed to fetch:", ticker);
     return null;
   }
 }
@@ -34,70 +33,96 @@ async function fetchLivePrice(ticker) {
 async function renderDashboard() {
   const dash = document.getElementById("dashboard");
   dash.innerHTML = "";
-  let labels = [], investedData = [], liveData = [];
 
-  for (const person of people) {
+  const allLabels = [[], []];
+  const allInvested = [[], []];
+  const allLive = [[], []];
+  let combinedInvested = 0;
+
+  for (let p = 0; p < people.length; p++) {
+    const person = people[p];
     const block = document.createElement("div");
     block.className = "person-block";
 
     let html = `<h2>${person.name}</h2>
-      <table>
-        <tr>
-          <th>Fund Name</th>
-          <th>Amount Invested (₹)</th>
-          <th>Live Value (₹)</th>
-          <th>Profit/Loss (%)</th>
-        </tr>`;
+    <table>
+      <tr><th>Fund</th><th>Invested (₹)</th><th>Ticker</th><th>Live (₹)</th><th>P/L (%)</th><th>🗑️</th></tr>`;
 
-    let personTotal = 0;
+    let total = 0;
 
-    for (const fund of person.funds) {
-      const liveValue = await fetchLivePrice(fund.ticker);
-      const profitLoss = liveValue
-        ? (((liveValue - fund.invested) / fund.invested) * 100).toFixed(2)
-        : "—";
+    for (let f = 0; f < person.funds.length; f++) {
+      const fund = person.funds[f];
+      const live = await fetchLivePrice(fund.ticker);
+      const profit = live ? (((live - fund.invested) / fund.invested) * 100).toFixed(2) : '—';
+
+      allLabels[p].push(fund.name);
+      allInvested[p].push(fund.invested);
+      allLive[p].push(live || null);
+      total += fund.invested;
+      combinedInvested += fund.invested;
 
       html += `<tr>
-        <td>${fund.name}</td>
-        <td>₹${fund.invested.toLocaleString()}</td>
-        <td>${liveValue ? `₹${liveValue.toFixed(2).toLocaleString()}` : "—"}</td>
-        <td>${liveValue ? `${profitLoss}%` : "—"}</td>
+        <td><input value="${fund.name}" onchange="people[${p}].funds[${f}].name=this.value; renderDashboard()" /></td>
+        <td><input type="number" value="${fund.invested}" onchange="people[${p}].funds[${f}].invested=+this.value; renderDashboard()" /></td>
+        <td><input value="${fund.ticker}" onchange="people[${p}].funds[${f}].ticker=this.value; renderDashboard()" /></td>
+        <td>${live ? `₹${live.toFixed(2)}` : '—'}</td>
+        <td>${live ? profit + '%' : '—'}</td>
+        <td><button class="delete-btn" onclick="removeFund(${p}, ${f})">❌</button></td>
       </tr>`;
-
-      labels.push(fund.name);
-      investedData.push(fund.invested);
-      liveData.push(liveValue || null);
-      personTotal += fund.invested;
     }
 
-    html += `</table><p><strong>✅ Total (${person.name}): ₹${personTotal.toLocaleString()} invested</strong></p>`;
+    html += `</table>
+    <button class="add-btn" onclick="addFund(${p})">➕ Add Fund</button>
+    <p><strong>Total Invested: ₹${total.toLocaleString()}</strong></p>`;
     block.innerHTML = html;
     dash.appendChild(block);
   }
 
-  renderChart(labels, investedData, liveData);
+  dash.innerHTML += `
+    <div class="person-block">
+      <h2>🧮 Combined Investment Summary</h2>
+      <table>
+        <tr><th>Category</th><th>Amount (₹)</th></tr>
+        <tr><td>Your Portfolio</td><td>₹${allInvested[0].reduce((a,b) => a+b, 0).toLocaleString()}</td></tr>
+        <tr><td>Spouse’s Portfolio</td><td>₹${allInvested[1].reduce((a,b) => a+b, 0).toLocaleString()}</td></tr>
+        <tr><td><strong>Combined Total</strong></td><td><strong>₹${combinedInvested.toLocaleString()}</strong></td></tr>
+      </table>
+    </div>`;
+
+  renderChart("yourChart", allLabels[0], allInvested[0], allLive[0]);
+  renderChart("spouseChart", allLabels[1], allInvested[1], allLive[1]);
 }
 
-function renderChart(labels, investedData, liveData) {
-  const ctx = document.getElementById("portfolioChart").getContext("2d");
-  if (window.portfolioChart) window.portfolioChart.destroy();
+function addFund(personIndex) {
+  people[personIndex].funds.push({ name: "", invested: 0, ticker: "" });
+  renderDashboard();
+}
 
-  window.portfolioChart = new Chart(ctx, {
+function removeFund(personIndex, fundIndex) {
+  people[personIndex].funds.splice(fundIndex, 1);
+  renderDashboard();
+}
+
+function renderChart(canvasId, labels, investedData, liveData) {
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  if (window[canvasId]) window[canvasId].destroy();
+
+  window[canvasId] = new Chart(ctx, {
     type: "line",
     data: {
       labels: labels,
       datasets: [
         {
-          label: "Invested Amount (₹)",
+          label: "Invested (₹)",
           data: investedData,
           borderColor: "#3498db",
           fill: false,
           tension: 0.3
         },
         {
-          label: "Live Value (₹)",
+          label: "Live (₹)",
           data: liveData,
-          borderColor: "#27ae60",
+          borderColor: "#2ecc71",
           fill: false,
           tension: 0.3
         }
