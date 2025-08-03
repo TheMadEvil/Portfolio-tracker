@@ -38,14 +38,18 @@ allData.forEach((fund, index) => {
   card.className = "col-md-6";
   const color = ["primary", "success", "warning", "danger", "info"][index % 5];
 
-  card.innerHTML = `
-    <div class="card border-${color} mb-3 shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">${fund.name}</h5>
-        <p class="card-text">💰 Amount: ₹<span class="editable amount">${fund.amount}</span></p>
-        <p class="card-text">📈 Return: <span class="editable return">${fund.return >= 0 ? '+' : ''}${fund.return}</span>%</p>
-      </div>
+card.innerHTML = `
+  <div class="card border-${color} mb-3 shadow-sm">
+    <div class="card-body">
+      <h5 class="card-title">
+        🏷️ <span class="editable name">${fund.name}</span>
+      </h5>
+      <p class="card-text">💰 Amount: ₹<span class="editable amount">${fund.amount}</span></p>
+      <p class="card-text">📈 Return: <span class="editable return">${fund.return >= 0 ? '+' : ''}${fund.return}</span>%</p>
     </div>
+  </div>
+`;
+
   `;
   container.appendChild(card);
 
@@ -83,3 +87,4 @@ new Chart(ctx, {
     }
   }
 });
+
