@@ -63,20 +63,106 @@
   </style>
 </head>
 <body>
-  <h1>🧾 Family Portfolio Tracker</h1>
+  <h1>💾 Family Portfolio Tracker</h1>
 
   <div id="dashboard"></div>
 
-  <button id="addPerson">➕ Add Person</button>
+  <button id="addPerson">Add Another Person</button>
 
   <div id="chart-container">
     <canvas id="chart"></canvas>
   </div>
 
-  <!-- Chart.js library -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- Link your custom script -->
-  <script src="script.js"></script>
+  <script>
+    const sampleData = [
+      {
+        name: "You",
+        funds: [
+          { fund: "Axis Liquid Fund", amount: 1026, return: 1.35 },
+          { fund: "Nippon Silver ETF FoF", amount: 3786, return: -3.79 },
+          { fund: "Nippon Large Cap", amount: 2914, return: -1.85 },
+          { fund: "Invesco PSU ETF", amount: 2500, return: 0 },
+          { fund: "Parag Parikh Flexi Cap", amount: 2500, return: 0 },
+        ]
+      },
+      {
+        name: "Spouse",
+        funds: [
+          { fund: "SBI Contra Regular", amount: 16247, return: 1.55 },
+          { fund: "SBI Large & Mid Regular", amount: 8371.95, return: 4.65 },
+          { fund: "SBI Small Cap Regular", amount: 16428, return: 2.68 },
+        ]
+      }
+    ];
+
+    const dashboard = document.getElementById("dashboard");
+
+    function createPersonBlock(person) {
+      const div = document.createElement("div");
+      div.className = "person-block";
+
+      const table = document.createElement("table");
+      const thead = `<thead><tr><th colspan="3">${person.name}</th></tr><tr><th>Fund</th><th>Amount (₹)</th><th>Return (%)</th></tr></thead>`;
+      let total = 0;
+      const rows = person.funds.map(f => {
+        total += f.amount;
+        return `<tr>
+          <td contenteditable="true">${f.fund}</td>
+          <td contenteditable="true">${f.amount}</td>
+          <td>${f.return}</td>
+        </tr>`;
+      }).join("");
+
+      table.innerHTML = thead + `<tbody>${rows}</tbody>` + `<tfoot><tr><td><strong>Total</strong></td><td colspan="2"><strong>₹${total.toFixed(2)}</strong></td></tr></tfoot>`;
+
+      div.appendChild(table);
+      dashboard.appendChild(div);
+    }
+
+    function renderDashboard() {
+      dashboard.innerHTML = "";
+      sampleData.forEach(person => createPersonBlock(person));
+      updateChart();
+    }
+
+    function updateChart() {
+      const ctx = document.getElementById('chart').getContext('2d');
+      const chartData = sampleData.map(person => ({
+        name: person.name,
+        total: person.funds.reduce((acc, cur) => acc + cur.amount, 0)
+      }));
+
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: chartData.map(p => p.name),
+          datasets: [{
+            label: 'Total Investment (₹)',
+            data: chartData.map(p => p.total),
+            backgroundColor: ['#2980b9', '#16a085', '#8e44ad']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    document.getElementById("addPerson").addEventListener("click", () => {
+      const name = prompt("Enter person's name:");
+      if (!name) return;
+      sampleData.push({ name, funds: [] });
+      renderDashboard();
+    });
+
+    renderDashboard();
+  </script>
 </body>
 </html>
