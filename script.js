@@ -51,8 +51,6 @@ card.innerHTML = `
 `;
 
   `;
-  container.appendChild(card);
-
   const spans = card.querySelectorAll(".editable");
   makeEditable(spans[0], "amount", fund);
   makeEditable(spans[1], "return", fund);
@@ -87,4 +85,5 @@ new Chart(ctx, {
     }
   }
 });
+
 
