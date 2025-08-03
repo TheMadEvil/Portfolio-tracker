@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>📈 Family Portfolio Tracker</title>
-  <link rel="stylesheet" href="style.css" />
   <style>
-    /* You can move this to style.css if you prefer */
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
@@ -31,9 +29,18 @@
     th, td {
       padding: 10px;
       border: 1px solid #ddd;
-      text-align: left;
     }
-    #chart-container {
+    input[type="text"], input[type="number"] {
+      width: 100%;
+    }
+    .add-btn, .delete-btn {
+      cursor: pointer;
+      background-color: #eee;
+      border: 1px solid #ccc;
+      padding: 3px 7px;
+      border-radius: 5px;
+    }
+    .chart-container {
       max-width: 900px;
       margin: 40px auto;
     }
@@ -44,13 +51,144 @@
 
   <div id="dashboard"></div>
 
-  <div id="chart-container">
-    <canvas id="portfolioChart"></canvas>
+  <div class="chart-container">
+    <h2>👤 Your Chart</h2>
+    <canvas id="yourChart"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>👩‍💼 Spouse’s Chart</h2>
+    <canvas id="spouseChart"></canvas>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="script.js"></script>
-</body>
-  <script src="script.js"></script>
-</html>
+  <script>
+    let people = [
+      {
+        name: "👤 Your Investments",
+        funds: [
+          { name: "Axis Liquid Fund", invested: 1026, ticker: "AXISLIQUID.NS" },
+          { name: "Nippon Silver ETF FoF", invested: 3786, ticker: "NIPPONSILVER.NS" }
+        ]
+      },
+      {
+        name: "👩‍💼 Spouse’s Investments",
+        funds: [
+          { name: "SBI Contra Regular", invested: 16247, ticker: "SBICONTRA.NS" }
+        ]
+      }
+    ];
 
+    async function fetchLivePrice(ticker) {
+      try {
+        const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1d&interval=1d`);
+        const data = await res.json();
+        return data.chart.result[0].indicators.quote[0].close[0];
+      } catch (e) {
+        console.warn("Failed to fetch:", ticker);
+        return null;
+      }
+    }
+
+    async function renderDashboard() {
+      const dash = document.getElementById("dashboard");
+      dash.innerHTML = "";
+
+      const allLabels = [[], []];
+      const allInvested = [[], []];
+      const allLive = [[], []];
+
+      for (let p = 0; p < people.length; p++) {
+        const person = people[p];
+        const block = document.createElement("div");
+        block.className = "person-block";
+
+        let html = `<h2>${person.name}</h2>
+        <table>
+          <tr><th>Fund</th><th>Invested (₹)</th><th>Ticker</th><th>Live (₹)</th><th>P/L (%)</th><th>🗑️</th></tr>`;
+
+        let total = 0;
+
+        for (let f = 0; f < person.funds.length; f++) {
+          const fund = person.funds[f];
+          const live = await fetchLivePrice(fund.ticker);
+          const profit = live ? (((live - fund.invested) / fund.invested) * 100).toFixed(2) : '—';
+
+          allLabels[p].push(fund.name);
+          allInvested[p].push(fund.invested);
+          allLive[p].push(live || null);
+          total += fund.invested;
+
+          html += `<tr>
+            <td><input value="${fund.name}" onchange="people[${p}].funds[${f}].name=this.value; renderDashboard()" /></td>
+            <td><input type="number" value="${fund.invested}" onchange="people[${p}].funds[${f}].invested=+this.value; renderDashboard()" /></td>
+            <td><input value="${fund.ticker}" onchange="people[${p}].funds[${f}].ticker=this.value; renderDashboard()" /></td>
+            <td>${live ? `₹${live.toFixed(2)}` : '—'}</td>
+            <td>${live ? profit + '%' : '—'}</td>
+            <td><button class="delete-btn" onclick="removeFund(${p}, ${f})">❌</button></td>
+          </tr>`;
+        }
+
+        html += `</table>
+        <button class="add-btn" onclick="addFund(${p})">➕ Add Fund</button>
+        <p><strong>Total Invested: ₹${total.toLocaleString()}</strong></p>`;
+
+        block.innerHTML = html;
+        dash.appendChild(block);
+      }
+
+      renderChart("yourChart", allLabels[0], allInvested[0], allLive[0], "👤 Your Chart");
+      renderChart("spouseChart", allLabels[1], allInvested[1], allLive[1], "👩‍💼 Spouse Chart");
+    }
+
+    function addFund(personIndex) {
+      people[personIndex].funds.push({ name: "", invested: 0, ticker: "" });
+      renderDashboard();
+    }
+
+    function removeFund(personIndex, fundIndex) {
+      people[personIndex].funds.splice(fundIndex, 1);
+      renderDashboard();
+    }
+
+    function renderChart(canvasId, labels, investedData, liveData, title) {
+      const ctx = document.getElementById(canvasId).getContext("2d");
+      if (window[canvasId]) window[canvasId].destroy();
+
+      window[canvasId] = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Invested (₹)",
+              data: investedData,
+              borderColor: "#3498db",
+              fill: false,
+              tension: 0.3
+            },
+            {
+              label: "Live (₹)",
+              data: liveData,
+              borderColor: "#27ae60",
+              fill: false,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true }
+          },
+          scales: {
+            y: { beginAtZero: false }
+          }
+        }
+      });
+    }
+
+    renderDashboard();
+  </script>
+</body>
+</html>
