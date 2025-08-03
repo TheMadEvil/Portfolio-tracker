@@ -1,125 +1,122 @@
-let data = {
-  "Person 1": [
-    { fund: "Axis Liquid Fund", amount: 1026, return: 1.35 },
-    { fund: "Nippon Silver ETF FoF", amount: 3786, return: -3.79 },
-    { fund: "Nippon Large Cap", amount: 2914, return: -1.85 },
-    { fund: "Invesco PSU ETF", amount: 2500, return: 0 },
-    { fund: "Parag Parikh Flexi Cap", amount: 2500, return: 0 },
-  ],
-  "Person 2": [
-    { fund: "SBI Contra Regular", amount: 16247, return: 1.55 },
-    { fund: "SBI Large & Mid Regular", amount: 8371.95, return: 4.65 },
-    { fund: "SBI Small Cap Regular", amount: 16428, return: 2.68 },
-  ]
-};
+const people = [
+  {
+    name: "👤 Your Investments",
+    funds: [
+      { name: "Axis Liquid Fund", invested: 1026, growwCode: "axis-liquid-direct-growth", status: "Active (6 months)" },
+      { name: "Nippon Silver ETF FoF", invested: 3786, growwCode: "nippon-india-silver-etf-fof-direct-growth", status: "Active (6 months)" },
+      { name: "Nippon Large Cap", invested: 2914, growwCode: "nippon-india-large-cap-direct-growth", status: "Active (6 months)" },
+      { name: "Invesco PSU ETF", invested: 2500, growwCode: "invesco-india-psu-equity-direct-growth", status: "Recent" },
+      { name: "Parag Parikh Flexi Cap", invested: 2500, growwCode: "parag-parikh-flexi-cap-direct-growth", status: "Recent" }
+    ]
+  },
+  {
+    name: "👩‍💼 Spouse’s Investments",
+    funds: [
+      { name: "SBI Contra Regular", invested: 16247, growwCode: "sbi-contra-direct-growth", status: "Active (since Dec 2024)" },
+      { name: "SBI Large & Mid Regular", invested: 8371.95, growwCode: "sbi-large-midcap-direct-growth", status: "Active" },
+      { name: "SBI Small Cap Regular", invested: 16428, growwCode: "sbi-small-cap-direct-growth", status: "Active" }
+    ]
+  }
+];
 
-const container = document.getElementById("dashboard");
-const ctx = document.getElementById("chart").getContext("2d");
-
-function createEditableCell(value, onChange) {
-  const input = document.createElement("input");
-  input.type = "text";
-  input.value = value;
-  input.onchange = (e) => onChange(e.target.value);
-  input.style.width = "100px";
-  return input;
+async function fetchGrowwNAV(code) {
+  try {
+    const res = await fetch(`https://groww.in/v1/api/mf_service/schemes/${code}`);
+    const data = await res.json();
+    return data.nav;
+  } catch {
+    return null;
+  }
 }
 
-function renderDashboard() {
-  container.innerHTML = "";
-  let labels = [];
-  let totals = [];
+async function renderDashboard() {
+  const dash = document.getElementById("dashboard");
+  dash.innerHTML = "";
+  let labels = [], investedData = [], liveData = [];
 
-  for (const [person, funds] of Object.entries(data)) {
-    const personDiv = document.createElement("div");
-    personDiv.className = "person-block";
-    const title = document.createElement("h3");
-    title.textContent = person;
+  let combinedTotal = 0;
 
-    let total = 0;
-    const table = document.createElement("table");
-    table.innerHTML = `<tr><th>Fund Name</th><th>Amount (₹)</th><th>Return (%)</th></tr>`;
+  for (const person of people) {
+    let block = document.createElement("div");
+    block.className = "person-block";
 
-    funds.forEach((f, idx) => {
-      const row = document.createElement("tr");
+    let html = `<h2>${person.name}</h2>
+    <table>
+      <tr><th>Fund Name</th><th>Amount Invested (₹)</th><th>Live NAV (₹)</th><th>Status</th><th>Live Value (₹)</th><th>Profit/Loss (%)</th></tr>`;
 
-      const fundName = createEditableCell(f.fund, val => {
-        data[person][idx].fund = val;
-        renderDashboard();
-      });
+    let personTotal = 0;
 
-      const amount = createEditableCell(f.amount, val => {
-        data[person][idx].amount = parseFloat(val) || 0;
-        renderDashboard();
-      });
+    for (const fund of person.funds) {
+      const nav = await fetchGrowwNAV(fund.growwCode);
+      const units = fund.invested / (nav || 1);
+      const liveValue = nav ? units * nav : fund.invested;
+      const profitLoss = nav ? (((liveValue - fund.invested) / fund.invested) * 100).toFixed(2) : "—";
 
-      const returnCell = createEditableCell(f.return, val => {
-        data[person][idx].return = parseFloat(val) || 0;
-        renderDashboard();
-      });
+      html += `<tr>
+        <td>${fund.name}</td>
+        <td>₹${fund.invested.toLocaleString()}</td>
+        <td>${nav ? `₹${nav.toFixed(2)}` : "—"}</td>
+        <td>${fund.status}</td>
+        <td>₹${liveValue.toFixed(2).toLocaleString()}</td>
+        <td>${nav ? `${profitLoss}%` : "—"}</td>
+      </tr>`;
 
-      row.appendChild(wrapInTd(fundName));
-      row.appendChild(wrapInTd(amount));
-      row.appendChild(wrapInTd(returnCell));
-      table.appendChild(row);
+      labels.push(fund.name);
+      investedData.push(fund.invested);
+      liveData.push(liveValue);
+      personTotal += fund.invested;
+    }
 
-      total += f.amount;
-    });
+    html += `</table><p><strong>✅ Total (${person.name}): ₹${personTotal.toLocaleString()} invested</strong></p>`;
+    combinedTotal += personTotal;
 
-    const totalDiv = document.createElement("div");
-    totalDiv.innerHTML = `<strong>Total: ₹${total.toLocaleString()}</strong>`;
-    personDiv.appendChild(title);
-    personDiv.appendChild(table);
-    personDiv.appendChild(totalDiv);
-    container.appendChild(personDiv);
-
-    labels.push(person);
-    totals.push(total);
+    block.innerHTML = html;
+    dash.appendChild(block);
   }
 
-  renderChart(labels, totals);
+  dash.innerHTML += `
+    <h2>🧮 Combined Investment Summary</h2>
+    <table>
+      <tr><th>Category</th><th>Amount (₹)</th></tr>
+      <tr><td>Your Portfolio</td><td>₹12,726</td></tr>
+      <tr><td>Spouse’s Portfolio</td><td>₹41,046.95</td></tr>
+      <tr><td><strong>Combined Total</strong></td><td><strong>₹53,772.95</strong></td></tr>
+    </table>`;
+
+  renderChart(labels, investedData, liveData);
 }
 
-function wrapInTd(element) {
-  const td = document.createElement("td");
-  td.appendChild(element);
-  return td;
-}
+function renderChart(labels, investedData, liveData) {
+  const ctx = document.getElementById("portfolioChart").getContext("2d");
+  if (window.portfolioChart) window.portfolioChart.destroy();
 
-function renderChart(labels, data) {
-  if (window.chartInstance) {
-    window.chartInstance.destroy();
-  }
-
-  window.chartInstance = new Chart(ctx, {
+  window.portfolioChart = new Chart(ctx, {
     type: "bar",
     data: {
       labels: labels,
-      datasets: [{
-        label: 'Total Investment (₹)',
-        data: data,
-        backgroundColor: ["#36A2EB", "#FF6384", "#FFCE56", "#4BC0C0"]
-      }]
+      datasets: [
+        {
+          label: "Amount Invested (₹)",
+          data: investedData,
+          backgroundColor: "#3498db"
+        },
+        {
+          label: "Live Value (₹)",
+          data: liveData,
+          backgroundColor: "#2ecc71"
+        }
+      ]
     },
     options: {
       responsive: true,
+      plugins: {
+        legend: { display: true }
+      },
       scales: {
-        y: {
-          beginAtZero: true
-        }
+        y: { beginAtZero: false }
       }
     }
   });
 }
-
-document.getElementById("addPerson").onclick = () => {
-  const newName = prompt("Enter name of the new person:");
-  if (newName && !data[newName]) {
-    data[newName] = [
-      { fund: "New Fund", amount: 0, return: 0 }
-    ];
-    renderDashboard();
-  }
-};
 
 renderDashboard();
