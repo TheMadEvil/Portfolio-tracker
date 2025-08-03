@@ -1,122 +1,191 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Family Portfolio Tracker</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <meta charset="UTF-8">
+  <title>Investment Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      background: #f4f8fb;
       font-family: Arial, sans-serif;
+      padding: 20px;
     }
-    .card {
-      border-radius: 1rem;
-      margin-bottom: 1.5rem;
+    .container {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
     }
-    .dashboard {
-      max-width: 900px;
-      margin: auto;
-      padding: 2rem;
+    .person {
+      flex: 1;
+      min-width: 300px;
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 8px;
     }
-    .chart-container {
-      margin-top: 2rem;
+    .editable {
+      padding: 2px 4px;
+      border: 1px dashed #ccc;
+      cursor: text;
+    }
+    .editable:focus {
+      outline: none;
+      background: #f5f5f5;
+    }
+    .total {
+      font-weight: bold;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <div class="dashboard">
-    <h2 class="text-center mb-4">📊 Family Investment Dashboard</h2>
 
-    <div class="row" id="portfolio-cards"></div>
-
-    <div class="chart-container">
-      <canvas id="portfolioChart"></canvas>
-    </div>
-  </div>
+<h2>Investment Portfolio Tracker</h2>
+<div class="container" id="dashboard"></div>
+<p><button onclick="addPerson()">➕ Add Person</button></p>
+<canvas id="diversificationChart" width="600" height="300"></canvas>
 
 <script>
-  const defaultData = {
-    you: [
-      { name: "Axis Liquid Fund", amount: 1026, return: 1.35 },
-      { name: "Nippon Silver ETF FoF", amount: 3786, return: -3.79 },
-      { name: "Nippon Large Cap", amount: 2914, return: -1.85 },
-      { name: "Invesco PSU ETF", amount: 2500, return: 0 },
-      { name: "Parag Parikh Flexi Cap", amount: 2500, return: 0 },
-    ],
-    spouse: [
-      { name: "SBI Contra Regular", amount: 16247, return: 1.55 },
-      { name: "SBI Large & Mid Regular", amount: 8371.95, return: 4.65 },
-      { name: "SBI Small Cap Regular", amount: 16428, return: 2.68 },
-    ],
-  };
-
-  // Load from localStorage or use default
-  const data = JSON.parse(localStorage.getItem("portfolioData")) || defaultData;
-  const allData = [...data.you, ...data.spouse];
-  const container = document.getElementById("portfolio-cards");
-
-  function makeEditable(span, key, field, obj) {
-    span.contentEditable = true;
-    span.addEventListener("blur", () => {
-      obj[field] = parseFloat(span.innerText.replace(/[₹,%]/g, "").trim()) || 0;
-      localStorage.setItem("portfolioData", JSON.stringify(data));
-      location.reload(); // refresh to update chart
-    });
+let data = JSON.parse(localStorage.getItem("portfolioData")) || [
+  {
+    name: "You",
+    funds: [
+      { name: "Axis Liquid Fund", amount: 1026 },
+      { name: "Nippon Silver ETF FoF", amount: 3786 },
+      { name: "Nippon Large Cap", amount: 2914 },
+      { name: "Invesco PSU ETF", amount: 2500 },
+      { name: "Parag Parikh Flexi Cap", amount: 2500 }
+    ]
+  },
+  {
+    name: "Spouse",
+    funds: [
+      { name: "SBI Contra Regular", amount: 16247 },
+      { name: "SBI Large & Mid Regular", amount: 8371.95 },
+      { name: "SBI Small Cap Regular", amount: 16428 }
+    ]
   }
+];
 
-  allData.forEach((fund, index) => {
-    const card = document.createElement("div");
-    card.className = "col-md-6";
-    const color = ["primary", "success", "warning", "danger", "info"][index % 5];
+function render() {
+  const dashboard = document.getElementById("dashboard");
+  dashboard.innerHTML = "";
 
-    card.innerHTML = `
-      <div class="card border-${color}">
-        <div class="card-body">
-          <h5 class="card-title">${fund.name}</h5>
-          <p class="card-text">💰 Amount: ₹<span class="editable amount">${fund.amount}</span></p>
-          <p class="card-text">📈 Return: <span class="editable return">${fund.return >= 0 ? '+' : ''}${fund.return}</span>%</p>
-        </div>
-      </div>
-    `;
-    container.appendChild(card);
+  let chartLabels = [];
+  let chartData = [];
 
-    // Enable editing
-    const spans = card.querySelectorAll(".editable");
-    makeEditable(spans[0], fund.name, "amount", fund);
-    makeEditable(spans[1], fund.name, "return", fund);
+  data.forEach((person, i) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "person";
+
+    const personName = document.createElement("h3");
+    personName.contentEditable = true;
+    personName.className = "editable";
+    personName.innerText = person.name;
+    personName.onblur = () => {
+      data[i].name = personName.innerText;
+      save();
+    };
+    wrapper.appendChild(personName);
+
+    let total = 0;
+    person.funds.forEach((fund, j) => {
+      const p = document.createElement("p");
+
+      const nameSpan = document.createElement("span");
+      nameSpan.contentEditable = true;
+      nameSpan.className = "editable";
+      nameSpan.innerText = fund.name;
+      nameSpan.onblur = () => {
+        data[i].funds[j].name = nameSpan.innerText;
+        save();
+        renderChart();
+      };
+
+      const amtSpan = document.createElement("span");
+      amtSpan.contentEditable = true;
+      amtSpan.className = "editable";
+      amtSpan.innerText = fund.amount;
+      amtSpan.onblur = () => {
+        const val = parseFloat(amtSpan.innerText);
+        data[i].funds[j].amount = isNaN(val) ? 0 : val;
+        save();
+        render();
+        renderChart();
+      };
+
+      p.appendChild(document.createTextNode("🏷️ "));
+      p.appendChild(nameSpan);
+      p.appendChild(document.createTextNode(" — ₹"));
+      p.appendChild(amtSpan);
+
+      wrapper.appendChild(p);
+
+      total += parseFloat(fund.amount);
+      chartLabels.push(`${person.name} - ${fund.name}`);
+      chartData.push(fund.amount);
+    });
+
+    const totalP = document.createElement("p");
+    totalP.className = "total";
+    totalP.innerText = `Total: ₹${total.toLocaleString()}`;
+    wrapper.appendChild(totalP);
+
+    dashboard.appendChild(wrapper);
   });
 
-  const ctx = document.getElementById("portfolioChart").getContext("2d");
-  new Chart(ctx, {
-    type: "doughnut",
+  renderChart(chartLabels, chartData);
+}
+
+function addPerson() {
+  const newPerson = {
+    name: "New Person",
+    funds: [
+      { name: "New Fund", amount: 0 }
+    ]
+  };
+  data.push(newPerson);
+  save();
+  render();
+}
+
+function save() {
+  localStorage.setItem("portfolioData", JSON.stringify(data));
+}
+
+function renderChart(labels, values) {
+  const ctx = document.getElementById("diversificationChart").getContext("2d");
+  if (window.chartInstance) window.chartInstance.destroy();
+  window.chartInstance = new Chart(ctx, {
+    type: 'bar',
     data: {
-      labels: allData.map(f => f.name),
+      labels: labels,
       datasets: [{
-        label: "Amount in ₹",
-        data: allData.map(f => f.amount),
-        backgroundColor: [
-          "#4e79a7", "#f28e2b", "#e15759", "#76b7b2",
-          "#59a14f", "#edc949", "#af7aa1", "#ff9da7",
-          "#9c755f", "#bab0ab"
-        ]
+        label: 'Investment Amount (₹)',
+        data: values,
+        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1
       }]
     },
     options: {
       responsive: true,
       plugins: {
-        legend: {
-          position: "bottom"
-        },
-        title: {
-          display: true,
-          text: "Portfolio Allocation"
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `₹${ctx.raw.toLocaleString()}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true
         }
       }
     }
   });
+}
+
+render();
 </script>
 </body>
 </html>
-
